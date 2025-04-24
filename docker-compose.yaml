@@ -1,1 +1,25 @@
-version: 'version'
+version: '3.8'
+services:
+  user-service: 
+    build: ./user-service
+    depends_on: 
+      - postgres
+      - auth-service
+    ports: 
+     - "8081:8081"
+  auth-service: 
+    build: ./auth_service
+    depends_on: 
+      - postgres
+    ports: 
+     - "8082:8082"
+  postgres:
+    image: postgres:latest
+    ports: 
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: task_management
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    volumes:
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql  
