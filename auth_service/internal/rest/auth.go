@@ -1,4 +1,4 @@
-package handlers
+package rest
 
 import (
 	"context"
@@ -7,22 +7,30 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/dielit66/task-management-system/internal/dto"
 	"github.com/dielit66/task-management-system/internal/entities"
 	app "github.com/dielit66/task-management-system/internal/errors"
 	"github.com/dielit66/task-management-system/internal/logger"
 	"github.com/dielit66/task-management-system/internal/usecases"
+	"github.com/gorilla/mux"
 )
+
+type AuthUsecase interface {
+	LoginUser(ctx context.Context, username string, password string) (*usecases.LoginResult, error)
+}
 
 type AuthHandler struct {
 	usecase *usecases.AuthUseCase
 	logger  logger.ILogger
 }
 
-func NewAuthHandler(uc *usecases.AuthUseCase, logger logger.ILogger) *AuthHandler {
-	return &AuthHandler{
+func NewAuthHandler(m *mux.Router, uc *usecases.AuthUseCase, logger logger.ILogger) {
+	handler := &AuthHandler{
 		usecase: uc,
 		logger:  logger,
 	}
+
+	m.HandleFunc("/login", handler.Login).Methods("POST")
 }
 
 type ErrorResponse struct {
@@ -48,13 +56,13 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	if err != nil {
-		h.writeError(w, http.StatusBadRequest, "Error while reading body", "unknown")
+		h.writeError(w, http.StatusBadRequest, "Error while reading body", string(app.ErrInternal))
 		return
 	}
 
 	json.Unmarshal(body, &user)
 
-	_, err = h.usecase.LoginUser(context.Background(), user.Username, user.Password)
+	result, err := h.usecase.LoginUser(context.Background(), user.Username, user.Password)
 
 	if err != nil {
 		var appErr *app.AppError
@@ -75,10 +83,18 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		h.logger.Error("Unexpected error", "username", user.Username, "error", err.Error())
-		h.writeError(w, http.StatusInternalServerError, "internal server error", "unknown")
+		h.writeError(w, http.StatusInternalServerError, "internal server error", string(app.ErrInternal))
 		return
 	}
 
-	w.WriteHeader(200)
-	w.Write([]byte("Login"))
+	response := dto.LoginResponse{
+		Success: result.IsSuccessed,
+	}
+
+	w.Header().Add("Content-Type", "application/json")
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		h.logger.Error("Error while encoding login response", "err", err.Error())
+		h.writeError(w, http.StatusInternalServerError, "error while encoding login response", string(app.ErrInternal))
+	}
 }

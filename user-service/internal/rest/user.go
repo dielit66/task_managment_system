@@ -1,4 +1,4 @@
-package handlers
+package rest
 
 import (
 	"context"
@@ -12,12 +12,16 @@ import (
 	"github.com/dielit66/task-management-system/internal/entities"
 	app "github.com/dielit66/task-management-system/internal/errors"
 	"github.com/dielit66/task-management-system/internal/logger"
-	"github.com/dielit66/task-management-system/internal/usecases"
 	"github.com/gorilla/mux"
 )
 
+type UserService interface {
+	RegisterUser(ctx context.Context, username string, email string, password string) error
+	GetUser(ctx context.Context, id int) (*entities.User, error)
+}
+
 type UserHandler struct {
-	usecase *usecases.UserUseCase
+	Service UserService
 	logger  logger.ILogger
 }
 
@@ -26,11 +30,14 @@ type ErrorResponse struct {
 	Code  string `json:"code"`
 }
 
-func NewUserHandler(uc *usecases.UserUseCase, l logger.ILogger) *UserHandler {
-	return &UserHandler{
-		usecase: uc,
+func NewUserHandler(m *mux.Router, svc UserService, l logger.ILogger) {
+	handler := &UserHandler{
+		Service: svc,
 		logger:  l,
 	}
+
+	m.HandleFunc("/users/register", handler.RegisterUser).Methods("POST")
+	m.HandleFunc("/users/{id:[0-9]+}", handler.GetUser).Methods("GET")
 }
 
 func (h *UserHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
@@ -53,7 +60,7 @@ func (h *UserHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.usecase.RegisterUser(context.Background(), user.Username, user.Email, user.Password)
+	err = h.Service.RegisterUser(context.Background(), user.Username, user.Email, user.Password)
 
 	if err != nil {
 		var appErr *app.AppError
@@ -100,7 +107,7 @@ func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.usecase.GetUser(context.Background(), idInt)
+	user, err := h.Service.GetUser(context.Background(), idInt)
 
 	if err != nil {
 		log.Println(err.Error())

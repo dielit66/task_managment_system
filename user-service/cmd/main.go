@@ -6,9 +6,9 @@ import (
 	"net/http"
 
 	"github.com/dielit66/task-management-system/internal/config"
-	"github.com/dielit66/task-management-system/internal/handlers"
 	"github.com/dielit66/task-management-system/internal/logger"
 	repository "github.com/dielit66/task-management-system/internal/repository/postgres"
+	"github.com/dielit66/task-management-system/internal/rest"
 	"github.com/dielit66/task-management-system/internal/usecases"
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
@@ -53,14 +53,11 @@ func main() {
 	l.Info("Creating new user usecase")
 	usecase := usecases.NewUserUseCase(repo, l)
 
-	l.Info("Creating new user handler")
-	handler := handlers.NewUserHandler(usecase, l)
-
 	l.Info("Creating router")
 	router := mux.NewRouter()
-	router.HandleFunc("/users/register", handler.RegisterUser).Methods("POST")
 
-	router.HandleFunc("/users/{id:[0-9]+}", handler.GetUser).Methods("GET")
+	l.Info("Creating new user handler")
+	rest.NewUserHandler(router, usecase, l)
 
 	port := fmt.Sprintf(":%s", cfg.Server.Port)
 

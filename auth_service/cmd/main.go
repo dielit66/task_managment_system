@@ -1,15 +1,20 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/dielit66/task-management-system/internal/auth"
 	"github.com/dielit66/task-management-system/internal/config"
-	"github.com/dielit66/task-management-system/internal/handlers"
 	"github.com/dielit66/task-management-system/internal/logger"
 	repository "github.com/dielit66/task-management-system/internal/repository/postgres"
+	"github.com/dielit66/task-management-system/internal/rest"
 	"github.com/dielit66/task-management-system/internal/usecases"
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
@@ -58,17 +63,41 @@ func main() {
 	l.Info("Creating new user usecase")
 	usecase := usecases.NewAuthUseCase(repo, jwtService, l)
 
-	l.Info("Creating new user handler")
-	handler := handlers.NewAuthHandler(usecase, l)
-
 	l.Info("Creating router")
 	router := mux.NewRouter()
 
-	router.HandleFunc("/login", handler.Login).Methods("POST")
+	l.Info("Creating new user handler")
+	rest.NewAuthHandler(router, usecase, l)
 
 	port := fmt.Sprintf(":%s", cfg.Server.Port)
 
-	l.Info("Starting server", "port", port)
-	log.Fatal(http.ListenAndServe(port, router))
+	srv := &http.Server{
+		Addr:         port,
+		Handler:      router,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+	}
+
+	go func() {
+		l.Info("Starting server", "port", port)
+		if err := srv.ListenAndServe(); err != nil {
+			l.Fatal(err.Error())
+		}
+	}()
+	sdChan := make(chan os.Signal, 1)
+
+	signal.Notify(sdChan, syscall.SIGINT, syscall.SIGTERM)
+
+	<-sdChan
+	l.Info("Shutting down the server...")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		l.Fatal("Server shutdown error", "error", err.Error())
+	}
+
+	l.Info("Server gracefully stopped")
 
 }

@@ -29,7 +29,11 @@ func NewAuthUseCase(repository IUserRepository, jwtService *auth.JWTService, log
 	}
 }
 
-func (uc *AuthUseCase) LoginUser(ctx context.Context, username string, password string) (bool, error) {
+type LoginResult struct {
+	IsSuccessed bool
+}
+
+func (uc *AuthUseCase) LoginUser(ctx context.Context, username string, password string) (*LoginResult, error) {
 	user, err := uc.repository.GetUserByUsername(ctx, username)
 
 	if err != nil {
@@ -37,22 +41,28 @@ func (uc *AuthUseCase) LoginUser(ctx context.Context, username string, password 
 		if errors.As(err, &appErr) {
 			if appErr.Type == app.ErrNotFound {
 				uc.logger.Warn("User not found in usecase", "username", username)
-				return false, err
+				return &LoginResult{
+					IsSuccessed: false,
+				}, err
 			}
 		}
 		uc.logger.Error("Failed to fetch user", "username", username, "error", err.Error())
-		return false, app.Wrap(err, app.ErrInternal, "failed to fetch user")
+		return nil, app.Wrap(err, app.ErrInternal, "failed to fetch user")
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
 	if err != nil {
 		if err == bcrypt.ErrMismatchedHashAndPassword {
-			uc.logger.Warn("Missmatch hash and password in usecase", "username", username)
-			return false, app.NewAppError(app.ErrUnauthorized, "Missmatch hash and password", err)
+			uc.logger.Info("Missmatch hash and password in usecase", "username", username)
+			return &LoginResult{
+				IsSuccessed: false,
+			}, nil
 		}
 		uc.logger.Error("Failed to compare with hash password", "username", username, "error", err.Error())
-		return false, app.Wrap(err, app.ErrInternal, "failed to compare with hash password")
+		return nil, app.Wrap(err, app.ErrInternal, "failed to compare with hash password")
 	}
 
-	return true, nil
+	return &LoginResult{
+		IsSuccessed: true,
+	}, nil
 }
