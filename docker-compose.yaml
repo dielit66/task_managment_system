@@ -17,6 +17,16 @@ services:
      - "8082:8082"
     networks:
       - app-net
+  task-service: 
+    build: ./task-service
+    depends_on: 
+      - postgres
+      - auth-service
+      - user-service
+    ports: 
+     - "8083:8083"
+    networks:
+      - app-net    
   postgres:
     image: postgres:latest
     ports: 

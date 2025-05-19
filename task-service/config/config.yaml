@@ -1,0 +1,9 @@
+log_level: -1
+server: 
+  port: 8083
+  jwt_secret: fo34ijg983
+database:
+  name: task_management
+  username: user
+  password: password
+  host: postgres
