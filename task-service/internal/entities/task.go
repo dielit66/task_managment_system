@@ -9,7 +9,6 @@ type Task struct {
 	Description string    `json:"description"`
 	CreatedAt   time.Time `json:"created_at" db:"created_at"`
 	Deadline    time.Time `json:"deadline"`
-	UserID      int       `db:"user_id" json:"user_id"`
 	StatusID    int       `db:"status_id" json:"status_id"`
 }
 
