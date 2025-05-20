@@ -30,13 +30,24 @@ services:
   postgres:
     image: postgres:latest
     ports: 
-      - "5432:5432"
+    - "5432:5432"
     environment:
       POSTGRES_DB: task_management
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
     volumes:
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - app-net
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     networks:
       - app-net
 networks:
